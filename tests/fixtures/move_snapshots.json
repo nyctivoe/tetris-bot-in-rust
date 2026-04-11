@@ -1,0 +1,302 @@
+[
+  {
+    "case": "empty_t_opening",
+    "suggestions": [
+      {
+        "x": 0,
+        "y": 37,
+        "rotation": 2,
+        "kind": "I",
+        "last_was_rot": true,
+        "last_rot_dir": -1,
+        "last_kick_idx": 0,
+        "is_spin": false,
+        "is_mini": false
+      },
+      {
+        "x": 0,
+        "y": 38,
+        "rotation": 0,
+        "kind": "I",
+        "last_was_rot": true,
+        "last_rot_dir": 2,
+        "last_kick_idx": 0,
+        "is_spin": false,
+        "is_mini": false
+      },
+      {
+        "x": 6,
+        "y": 37,
+        "rotation": 2,
+        "kind": "I",
+        "last_was_rot": true,
+        "last_rot_dir": -1,
+        "last_kick_idx": 0,
+        "is_spin": false,
+        "is_mini": false
+      },
+      {
+        "x": 6,
+        "y": 38,
+        "rotation": 0,
+        "kind": "I",
+        "last_was_rot": true,
+        "last_rot_dir": 2,
+        "last_kick_idx": 0,
+        "is_spin": false,
+        "is_mini": false
+      },
+      {
+        "x": 1,
+        "y": 37,
+        "rotation": 2,
+        "kind": "I",
+        "last_was_rot": false,
+        "last_rot_dir": null,
+        "last_kick_idx": null,
+        "is_spin": false,
+        "is_mini": false
+      }
+    ]
+  },
+  {
+    "case": "right_well_hold_i",
+    "suggestions": [
+      {
+        "x": 7,
+        "y": 36,
+        "rotation": 1,
+        "kind": "I",
+        "last_was_rot": true,
+        "last_rot_dir": 2,
+        "last_kick_idx": 0,
+        "is_spin": false,
+        "is_mini": false
+      },
+      {
+        "x": 8,
+        "y": 36,
+        "rotation": 3,
+        "kind": "I",
+        "last_was_rot": false,
+        "last_rot_dir": null,
+        "last_kick_idx": null,
+        "is_spin": false,
+        "is_mini": false
+      },
+      {
+        "x": 0,
+        "y": 33,
+        "rotation": 2,
+        "kind": "I",
+        "last_was_rot": true,
+        "last_rot_dir": -1,
+        "last_kick_idx": 0,
+        "is_spin": false,
+        "is_mini": false
+      },
+      {
+        "x": 0,
+        "y": 34,
+        "rotation": 0,
+        "kind": "I",
+        "last_was_rot": true,
+        "last_rot_dir": 2,
+        "last_kick_idx": 0,
+        "is_spin": false,
+        "is_mini": false
+      },
+      {
+        "x": 1,
+        "y": 33,
+        "rotation": 2,
+        "kind": "I",
+        "last_was_rot": false,
+        "last_rot_dir": null,
+        "last_kick_idx": null,
+        "is_spin": false,
+        "is_mini": false
+      }
+    ]
+  },
+  {
+    "case": "t_spin_ready_center",
+    "suggestions": [
+      {
+        "x": 6,
+        "y": 33,
+        "rotation": 2,
+        "kind": "I",
+        "last_was_rot": true,
+        "last_rot_dir": -1,
+        "last_kick_idx": 0,
+        "is_spin": false,
+        "is_mini": false
+      },
+      {
+        "x": 6,
+        "y": 34,
+        "rotation": 0,
+        "kind": "I",
+        "last_was_rot": true,
+        "last_rot_dir": 2,
+        "last_kick_idx": 0,
+        "is_spin": false,
+        "is_mini": false
+      },
+      {
+        "x": 5,
+        "y": 33,
+        "rotation": 2,
+        "kind": "I",
+        "last_was_rot": false,
+        "last_rot_dir": null,
+        "last_kick_idx": null,
+        "is_spin": false,
+        "is_mini": false
+      },
+      {
+        "x": 5,
+        "y": 34,
+        "rotation": 0,
+        "kind": "I",
+        "last_was_rot": true,
+        "last_rot_dir": 2,
+        "last_kick_idx": 0,
+        "is_spin": false,
+        "is_mini": false
+      },
+      {
+        "x": 7,
+        "y": 34,
+        "rotation": 0,
+        "kind": "T",
+        "last_was_rot": false,
+        "last_rot_dir": null,
+        "last_kick_idx": null,
+        "is_spin": false,
+        "is_mini": false
+      }
+    ]
+  },
+  {
+    "case": "j_spin_glue_left",
+    "suggestions": [
+      {
+        "x": 7,
+        "y": 34,
+        "rotation": 0,
+        "kind": "J",
+        "last_was_rot": false,
+        "last_rot_dir": null,
+        "last_kick_idx": null,
+        "is_spin": false,
+        "is_mini": false
+      },
+      {
+        "x": 8,
+        "y": 33,
+        "rotation": 3,
+        "kind": "J",
+        "last_was_rot": false,
+        "last_rot_dir": null,
+        "last_kick_idx": null,
+        "is_spin": false,
+        "is_mini": false
+      },
+      {
+        "x": 7,
+        "y": 34,
+        "rotation": 0,
+        "kind": "T",
+        "last_was_rot": false,
+        "last_rot_dir": null,
+        "last_kick_idx": null,
+        "is_spin": false,
+        "is_mini": false
+      },
+      {
+        "x": 2,
+        "y": 34,
+        "rotation": 0,
+        "kind": "J",
+        "last_was_rot": true,
+        "last_rot_dir": -1,
+        "last_kick_idx": 0,
+        "is_spin": false,
+        "is_mini": false
+      },
+      {
+        "x": 3,
+        "y": 34,
+        "rotation": 0,
+        "kind": "J",
+        "last_was_rot": false,
+        "last_rot_dir": null,
+        "last_kick_idx": null,
+        "is_spin": false,
+        "is_mini": false
+      }
+    ]
+  },
+  {
+    "case": "combo_downstack_with_hold",
+    "suggestions": [
+      {
+        "x": 0,
+        "y": 33,
+        "rotation": 2,
+        "kind": "S",
+        "last_was_rot": true,
+        "last_rot_dir": -1,
+        "last_kick_idx": 0,
+        "is_spin": false,
+        "is_mini": false
+      },
+      {
+        "x": 0,
+        "y": 34,
+        "rotation": 0,
+        "kind": "S",
+        "last_was_rot": true,
+        "last_rot_dir": 2,
+        "last_kick_idx": 0,
+        "is_spin": false,
+        "is_mini": false
+      },
+      {
+        "x": 7,
+        "y": 34,
+        "rotation": 0,
+        "kind": "T",
+        "last_was_rot": false,
+        "last_rot_dir": null,
+        "last_kick_idx": null,
+        "is_spin": false,
+        "is_mini": false
+      },
+      {
+        "x": 0,
+        "y": 34,
+        "rotation": 0,
+        "kind": "T",
+        "last_was_rot": true,
+        "last_rot_dir": 2,
+        "last_kick_idx": 0,
+        "is_spin": false,
+        "is_mini": false
+      },
+      {
+        "x": 5,
+        "y": 34,
+        "rotation": 0,
+        "kind": "T",
+        "last_was_rot": true,
+        "last_rot_dir": 2,
+        "last_kick_idx": 0,
+        "is_spin": false,
+        "is_mini": false
+      }
+    ]
+  }
+]
