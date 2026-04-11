@@ -43,25 +43,8 @@ fn main() {
                 io::stdout().flush().unwrap();
             }
             FrontendMessage::Start(start) => {
-                let board = board_from_message(&start.board);
-                let bag = BagSet::full();
-                let state = GameState {
-                    board,
-                    bag,
-                    reserve: start.hold,
-                    b2b_chain: if start.back_to_back { 1 } else { 0 },
-                    surge_charge: 0,
-                    combo: start.combo,
-                    combo_active: start.combo != 0,
-                    b2b_mode: tetrisEngine::B2BMode::Surge,
-                };
-
-                let options = BotOptions {
-                    speculate: true,
-                    config: config.clone(),
-                };
-
-                let bot = Bot::new(options, state, &start.queue);
+                let bot = bot_from_start(config.clone(), start);
+                prime_bot(&bot, 1);
                 bot_sync.start(bot);
             }
             FrontendMessage::Stop => {
@@ -92,6 +75,37 @@ fn main() {
     }
 }
 
+fn bot_from_start(config: Arc<BotConfig>, start: tetrisBot::tbp::Start) -> Bot {
+    let board = board_from_message(&start.board);
+    let bag = BagSet::full();
+    let state = GameState {
+        board,
+        bag,
+        reserve: start.hold,
+        b2b_chain: if start.back_to_back { 1 } else { 0 },
+        surge_charge: 0,
+        combo: start.combo,
+        combo_active: start.combo != 0,
+        b2b_mode: tetrisEngine::B2BMode::Surge,
+    };
+
+    let options = BotOptions {
+        speculate: true,
+        config,
+    };
+
+    Bot::new(options, state, &start.queue)
+}
+
+fn prime_bot(bot: &Bot, iterations: usize) {
+    for _ in 0..iterations {
+        let _ = bot.do_work();
+        if !bot.suggest().is_empty() {
+            break;
+        }
+    }
+}
+
 fn board_from_message(board: &BoardMessage) -> tetrisEngine::Board {
     use tetrisEngine::{BOARD_HEIGHT, BOARD_WIDTH};
     let mut result = [0i8; BOARD_WIDTH * BOARD_HEIGHT];
@@ -111,4 +125,37 @@ fn board_from_message(board: &BoardMessage) -> tetrisEngine::Board {
     }
 
     result
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use tetrisBot::tbp::Start;
+    use tetrisEngine::PieceKind;
+
+    #[test]
+    fn start_message_initializes_bot_with_non_empty_suggestions() {
+        let start = Start {
+            board: BoardMessage {
+                cells: vec![vec![None; tetrisEngine::BOARD_WIDTH]; tetrisEngine::BOARD_HEIGHT],
+            },
+            queue: vec![
+                PieceKind::S,
+                PieceKind::O,
+                PieceKind::T,
+                PieceKind::I,
+                PieceKind::L,
+                PieceKind::Z,
+            ],
+            hold: None,
+            back_to_back: false,
+            combo: 0,
+        };
+
+        let bot = bot_from_start(Arc::new(BotConfig::default()), start);
+        let stats = bot.do_work();
+
+        assert!(stats.nodes > 0);
+        assert!(!bot.suggest().is_empty());
+    }
 }

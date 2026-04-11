@@ -171,6 +171,7 @@ pub fn find_placements(board: &Board, kind: PieceKind) -> Vec<(Placement, u32)> 
 }
 
 fn hard_drop_state(board: &Board, probe_piece: &Piece, mut state: SearchState) -> SearchState {
+    let initial_y = state.y;
     while is_position_valid(
         board,
         probe_piece,
@@ -178,6 +179,11 @@ fn hard_drop_state(board: &Board, probe_piece: &Piece, mut state: SearchState) -
         Some(state.rotation),
     ) {
         state.y += 1;
+    }
+    if state.y != initial_y {
+        state.last_was_rot = false;
+        state.last_rot_dir = None;
+        state.last_kick_idx = None;
     }
     state
 }

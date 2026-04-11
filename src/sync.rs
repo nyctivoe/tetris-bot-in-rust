@@ -2,6 +2,8 @@ use crate::bot::{Bot, Statistics};
 use crate::data::Placement;
 use tetrisEngine::PieceKind;
 
+const SUGGEST_WARMUP_ITERS: usize = 64;
+
 pub struct BotSynchronizer {
     state: parking_lot::Mutex<SyncState>,
     wakeup: parking_lot::Condvar,
@@ -52,7 +54,25 @@ impl BotSynchronizer {
     pub fn suggest(&self) -> Option<(Vec<Placement>, MoveInfo)> {
         let guard = self.bot.read();
         let bot = guard.as_ref()?;
-        let moves = bot.suggest();
+        let mut extra_stats = Statistics::default();
+        let mut moves = bot.suggest();
+        if moves.is_empty() {
+            for _ in 0..SUGGEST_WARMUP_ITERS {
+                let stats = bot.do_work();
+                extra_stats.accumulate(stats);
+                moves = bot.suggest();
+                if !moves.is_empty() {
+                    break;
+                }
+            }
+        }
+        drop(guard);
+
+        if extra_stats.nodes > 0 || extra_stats.selections > 0 || extra_stats.expansions > 0 {
+            let mut state = self.state.lock();
+            state.stats.accumulate(extra_stats);
+        }
+
         let state = self.state.lock();
         let info = MoveInfo {
             nodes: state.stats.nodes,
@@ -101,4 +121,43 @@ pub struct MoveInfo {
     pub nodes: u64,
     pub nps: f64,
     pub extra: String,
+}
+
+#[cfg(test)]
+mod tests {
+    use std::sync::Arc;
+
+    use crate::bot::{BotConfig, BotOptions};
+    use crate::data::GameState;
+
+    use super::*;
+
+    #[test]
+    fn suggest_warms_up_new_bot_until_moves_exist() {
+        let sync = BotSynchronizer::new();
+        let options = BotOptions {
+            speculate: true,
+            config: Arc::new(BotConfig::default()),
+        };
+        let bot = Bot::new(
+            options,
+            GameState::empty(),
+            &[
+                PieceKind::S,
+                PieceKind::O,
+                PieceKind::T,
+                PieceKind::I,
+                PieceKind::L,
+                PieceKind::Z,
+            ],
+        );
+
+        sync.start(bot);
+        let (moves, _) = sync.suggest().expect("started bot should answer suggest");
+
+        assert!(
+            !moves.is_empty(),
+            "suggest should produce at least one move"
+        );
+    }
 }

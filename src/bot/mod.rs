@@ -131,4 +131,28 @@ mod tests {
         assert_eq!(bot.queue.front().copied(), Some(PieceKind::I));
         assert_eq!(bot.queue.len(), 1);
     }
+
+    #[test]
+    fn do_work_on_started_bot_produces_moves() {
+        let bot = Bot::new(
+            test_options(),
+            GameState::empty(),
+            &[
+                PieceKind::S,
+                PieceKind::O,
+                PieceKind::T,
+                PieceKind::I,
+                PieceKind::L,
+                PieceKind::Z,
+            ],
+        );
+
+        let stats = bot.do_work();
+
+        assert!(stats.nodes > 0, "expected expansions from first work step");
+        assert!(
+            !bot.suggest().is_empty(),
+            "expected at least one suggestion"
+        );
+    }
 }
