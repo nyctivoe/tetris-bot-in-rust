@@ -1,5 +1,6 @@
 pub mod freestyle;
 
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use serde::{Deserialize, Serialize};
@@ -18,20 +19,101 @@ pub struct Bot {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct BotConfig {
+    #[serde(default = "default_speculate")]
+    pub speculate: bool,
+    #[serde(default)]
     pub freestyle_weights: crate::eval::weights::Weights,
-    pub freestyle_exploitation: f64,
+    #[serde(default = "default_worker_count")]
+    pub worker_count: usize,
+    #[serde(default = "default_suggest_budget_ms")]
+    pub suggest_budget_ms: u64,
+    #[serde(default = "default_suggest_min_nodes")]
+    pub suggest_min_nodes: u64,
+}
+
+pub const CONFIG_ENV_VAR: &str = "TETRIS_BOT_CONFIG";
+const DEFAULT_CONFIG_FILE_NAME: &str = "bot_config.json";
+
+fn default_speculate() -> bool {
+    true
+}
+
+fn default_worker_count() -> usize {
+    std::thread::available_parallelism()
+        .map(|n| n.get().saturating_sub(1).max(1))
+        .unwrap_or(1)
+}
+
+fn default_suggest_budget_ms() -> u64 {
+    500
+}
+
+fn default_suggest_min_nodes() -> u64 {
+    200
 }
 
 impl Default for BotConfig {
     fn default() -> Self {
         static DEFAULT: once_cell::sync::Lazy<BotConfig> = once_cell::sync::Lazy::new(|| {
-            let weights = crate::eval::weights::Weights::default();
-            BotConfig {
-                freestyle_exploitation: weights.freestyle_exploitation,
-                freestyle_weights: weights,
-            }
+            serde_json::from_str(include_str!("../../bot_config.json")).unwrap()
         });
         DEFAULT.clone()
+    }
+}
+
+impl BotConfig {
+    pub fn load_from_path(path: impl AsRef<Path>) -> Result<Self, String> {
+        let path = path.as_ref();
+        let contents = std::fs::read_to_string(path)
+            .map_err(|err| format!("failed to read bot config {}: {err}", path.display()))?;
+        serde_json::from_str(&contents)
+            .map_err(|err| format!("failed to parse bot config {}: {err}", path.display()))
+    }
+
+    pub fn load_runtime(explicit_path: Option<PathBuf>) -> Result<(Self, Option<PathBuf>), String> {
+        let resolved = Self::resolve_runtime_path(explicit_path)?;
+        match resolved {
+            Some(path) => Self::load_from_path(&path).map(|config| (config, Some(path))),
+            None => Ok((Self::default(), None)),
+        }
+    }
+
+    pub fn resolve_runtime_path(explicit_path: Option<PathBuf>) -> Result<Option<PathBuf>, String> {
+        if let Some(path) = explicit_path {
+            return Ok(Some(path));
+        }
+
+        if let Some(path) = std::env::var_os(CONFIG_ENV_VAR) {
+            if path.is_empty() {
+                return Err(format!("{CONFIG_ENV_VAR} is set but empty"));
+            }
+            return Ok(Some(PathBuf::from(path)));
+        }
+
+        Ok(Self::runtime_path_candidates()
+            .into_iter()
+            .find(|candidate| candidate.is_file()))
+    }
+
+    pub fn runtime_path_candidates() -> Vec<PathBuf> {
+        let mut candidates = vec![
+            PathBuf::from(DEFAULT_CONFIG_FILE_NAME),
+            PathBuf::from("tetrisBot").join(DEFAULT_CONFIG_FILE_NAME),
+        ];
+
+        if let Ok(current_exe) = std::env::current_exe() {
+            if let Some(mut dir) = current_exe.parent().map(Path::to_path_buf) {
+                for _ in 0..4 {
+                    candidates.push(dir.join(DEFAULT_CONFIG_FILE_NAME));
+                    candidates.push(dir.join("tetrisBot").join(DEFAULT_CONFIG_FILE_NAME));
+                    if !dir.pop() {
+                        break;
+                    }
+                }
+            }
+        }
+
+        candidates
     }
 }
 
@@ -97,6 +179,8 @@ impl Statistics {
 
 #[cfg(test)]
 mod tests {
+    use std::time::{SystemTime, UNIX_EPOCH};
+
     use super::*;
     use crate::data::Placement;
 
@@ -154,5 +238,36 @@ mod tests {
             !bot.suggest().is_empty(),
             "expected at least one suggestion"
         );
+    }
+
+    #[test]
+    fn bot_config_loads_from_json_file() {
+        let mut config = BotConfig::default();
+        config.speculate = false;
+        config.worker_count = 3;
+        config.suggest_budget_ms = 1234;
+        config.suggest_min_nodes = 56;
+        config.freestyle_weights.softdrop = 1.25;
+
+        let unique = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("system time should be after epoch")
+            .as_nanos();
+        let path = std::env::temp_dir().join(format!("tetrisbot-config-{unique}.json"));
+
+        std::fs::write(
+            &path,
+            serde_json::to_string(&config).expect("config serialization should succeed"),
+        )
+        .expect("temp config should be writable");
+
+        let loaded = BotConfig::load_from_path(&path).expect("config should load from json file");
+        let _ = std::fs::remove_file(&path);
+
+        assert!(!loaded.speculate);
+        assert_eq!(loaded.worker_count, 3);
+        assert_eq!(loaded.suggest_budget_ms, 1234);
+        assert_eq!(loaded.suggest_min_nodes, 56);
+        assert_eq!(loaded.freestyle_weights.softdrop, 1.25);
     }
 }

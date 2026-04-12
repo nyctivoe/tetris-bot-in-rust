@@ -41,9 +41,6 @@ pub struct Weights {
 
 impl Default for Weights {
     fn default() -> Self {
-        static DEFAULT: once_cell::sync::Lazy<Weights> = once_cell::sync::Lazy::new(|| {
-            serde_json::from_str(include_str!("../weights.json")).unwrap()
-        });
-        DEFAULT.clone()
+        crate::bot::BotConfig::default().freestyle_weights
     }
 }

@@ -32,6 +32,27 @@ pub struct Start {
     pub back_to_back: bool,
     #[serde(default)]
     pub combo: i32,
+    #[serde(default)]
+    pub b2b_chain: i32,
+    #[serde(default)]
+    pub surge_charge: i32,
+    #[serde(default)]
+    pub combo_active: bool,
+    #[serde(default = "default_b2b_mode_str")]
+    pub b2b_mode: String,
+}
+
+fn default_b2b_mode_str() -> String {
+    "surge".to_string()
+}
+
+impl Start {
+    pub fn resolved_b2b_mode(&self) -> tetrisEngine::B2BMode {
+        match self.b2b_mode.as_str() {
+            "chaining" => tetrisEngine::B2BMode::Chaining,
+            _ => tetrisEngine::B2BMode::Surge,
+        }
+    }
 }
 
 #[derive(Debug, Deserialize)]

@@ -183,9 +183,9 @@
     "case": "j_spin_glue_left",
     "suggestions": [
       {
-        "x": 7,
-        "y": 34,
-        "rotation": 0,
+        "x": 8,
+        "y": 33,
+        "rotation": 3,
         "kind": "J",
         "last_was_rot": false,
         "last_rot_dir": null,
@@ -194,9 +194,9 @@
         "is_mini": false
       },
       {
-        "x": 8,
-        "y": 33,
-        "rotation": 3,
+        "x": 7,
+        "y": 34,
+        "rotation": 0,
         "kind": "J",
         "last_was_rot": false,
         "last_rot_dir": null,
@@ -265,9 +265,9 @@
         "is_mini": false
       },
       {
-        "x": 7,
-        "y": 34,
-        "rotation": 0,
+        "x": 4,
+        "y": 33,
+        "rotation": 3,
         "kind": "T",
         "last_was_rot": false,
         "last_rot_dir": null,
@@ -276,10 +276,10 @@
         "is_mini": false
       },
       {
-        "x": 0,
-        "y": 34,
-        "rotation": 0,
-        "kind": "T",
+        "x": 3,
+        "y": 33,
+        "rotation": 1,
+        "kind": "S",
         "last_was_rot": false,
         "last_rot_dir": null,
         "last_kick_idx": null,
@@ -287,10 +287,10 @@
         "is_mini": false
       },
       {
-        "x": 5,
-        "y": 34,
-        "rotation": 0,
-        "kind": "T",
+        "x": 4,
+        "y": 33,
+        "rotation": 3,
+        "kind": "S",
         "last_was_rot": false,
         "last_rot_dir": null,
         "last_kick_idx": null,

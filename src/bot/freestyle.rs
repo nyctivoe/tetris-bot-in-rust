@@ -44,10 +44,10 @@ impl Freestyle {
         let mut new_stats = Statistics::default();
         new_stats.selections += 1;
 
-        if let Some(node) = self
-            .dag
-            .select(options.speculate, options.config.freestyle_exploitation)
-        {
+        if let Some(node) = self.dag.select(
+            options.speculate,
+            options.config.freestyle_weights.freestyle_exploitation,
+        ) {
             let (state, next_piece, following_piece) = node.state();
             let next_possibilities = next_piece.map(BagSet::single).unwrap_or(state.bag);
 
