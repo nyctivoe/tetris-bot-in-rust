@@ -53,6 +53,10 @@ pub fn evaluate(
         reward += weights.combo_attack * (placement_feats.combo.saturating_sub(1) / 2) as f32;
     }
 
+    if placement_feats.surge_send > 0 {
+        reward += weights.surge_release_reward * placement_feats.surge_send as f32;
+    }
+
     if placement_feats.wasted_t {
         reward += weights.wasted_t;
     }

@@ -167,6 +167,10 @@ pub struct Statistics {
     pub nodes: u64,
     pub selections: u64,
     pub expansions: u64,
+    pub movegen_calls: u64,
+    pub movegen_nanos: u64,
+    pub slot_calls: u64,
+    pub slot_nanos: u64,
 }
 
 impl Statistics {
@@ -174,6 +178,10 @@ impl Statistics {
         self.nodes += other.nodes;
         self.selections += other.selections;
         self.expansions += other.expansions;
+        self.movegen_calls += other.movegen_calls;
+        self.movegen_nanos += other.movegen_nanos;
+        self.slot_calls += other.slot_calls;
+        self.slot_nanos += other.slot_nanos;
     }
 }
 
@@ -234,6 +242,14 @@ mod tests {
         let stats = bot.do_work();
 
         assert!(stats.nodes > 0, "expected expansions from first work step");
+        assert!(
+            stats.movegen_calls > 0,
+            "expected movegen profiling to record calls"
+        );
+        assert!(
+            stats.slot_calls > 0,
+            "expected slot profiling to record calls"
+        );
         assert!(
             !bot.suggest().is_empty(),
             "expected at least one suggestion"

@@ -16,6 +16,7 @@
     "has_back_to_back": 0.8,
     "b2b_chain_bonus": 0.5,
     "surge_charge_bonus": 1.0,
+    "surge_release_reward": 1.5,
     "tslot": [0.0, 2.5, 4.5, 5.0],
     "jslot": [0.02, 0.2, 0.4],
     "lslot": [0.02, 0.2, 0.4],

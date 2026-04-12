@@ -15,6 +15,7 @@ pub struct Weights {
     pub has_back_to_back: f32,
     pub b2b_chain_bonus: f32,
     pub surge_charge_bonus: f32,
+    pub surge_release_reward: f32,
 
     pub tslot: [f32; 4],
     pub jslot: [f32; 3],

@@ -70,6 +70,20 @@ fn main() {
                     io::stdout().flush().unwrap();
                 }
             }
+            FrontendMessage::Peek => {
+                if let Some((moves, info)) = bot_sync.peek() {
+                    let msg = BotMessage::Suggestion {
+                        moves,
+                        move_info: MoveInfoMessage {
+                            nodes: info.nodes,
+                            nps: info.nps,
+                            extra: info.extra,
+                        },
+                    };
+                    println!("{}", msg.to_json());
+                    io::stdout().flush().unwrap();
+                }
+            }
             FrontendMessage::Play { mv } => {
                 bot_sync.advance(mv.location);
             }

@@ -1,4 +1,4 @@
-use std::collections::{HashMap, VecDeque};
+use std::time::Instant;
 
 use tetrisEngine::{
     board_index, cell_blocked, compute_blocks, is_position_valid, rotation_candidates, Board,
@@ -8,6 +8,13 @@ use tetrisEngine::{
 use crate::data::Placement;
 
 pub fn find_placements(board: &Board, kind: PieceKind) -> Vec<(Placement, u32)> {
+    let start = Instant::now();
+    let results = find_placements_impl(board, kind);
+    crate::profiling::record_movegen(start.elapsed());
+    results
+}
+
+fn find_placements_impl(board: &Board, kind: PieceKind) -> Vec<(Placement, u32)> {
     let spawn_x = SPAWN_X;
     let spawn_y = SPAWN_Y;
 
@@ -15,7 +22,6 @@ pub fn find_placements(board: &Board, kind: PieceKind) -> Vec<(Placement, u32)> 
         return Vec::new();
     }
 
-    let mut queue = VecDeque::new();
     let start_state = SearchState {
         x: spawn_x,
         y: spawn_y,
@@ -25,24 +31,38 @@ pub fn find_placements(board: &Board, kind: PieceKind) -> Vec<(Placement, u32)> 
         last_kick_idx: None,
         soft_drop: 0,
     };
-    queue.push_back(start_state);
 
-    let mut best_soft_drop: HashMap<SearchStateKey, u32> = HashMap::new();
-    best_soft_drop.insert(start_state.key(), 0);
+    let mut current = Vec::with_capacity(256);
+    let mut next = Vec::with_capacity(256);
+    current.push(start_state.key());
 
-    let mut terminals: std::collections::HashMap<(i16, i16, u8, bool, bool), SearchState> =
-        std::collections::HashMap::new();
+    let mut best_soft_drop = [u32::MAX; SEARCH_KEY_CAPACITY];
+    best_soft_drop[start_state.key().index()] = 0;
+
+    let mut terminals: [Option<SearchState>; TERMINAL_CAPACITY] = [None; TERMINAL_CAPACITY];
     let rotation_actions: &[i8] = &[1, -1, 2];
     let probe_piece = Piece::new(kind, 0, (spawn_x, spawn_y));
+    let mut current_soft_drop = 0u32;
 
-    while let Some(state) = queue.pop_front() {
+    while !current.is_empty() || !next.is_empty() {
+        if current.is_empty() {
+            std::mem::swap(&mut current, &mut next);
+            current_soft_drop += 1;
+        }
+
+        let key = current.pop().expect("current bucket should be non-empty");
+        if best_soft_drop[key.index()] != current_soft_drop {
+            continue;
+        }
+        let state = key.with_soft_drop(current_soft_drop);
+
         let dropped = hard_drop_state(board, &probe_piece, state);
         let (is_spin, is_mini) = detect_spin_at_terminal(board, kind, &dropped);
-        let key = (dropped.x, dropped.y, dropped.rotation, is_spin, is_mini);
-        match terminals.get_mut(&key) {
+        let terminal_index = dropped.terminal_index(is_spin, is_mini);
+        match &mut terminals[terminal_index] {
             Some(existing) if dropped.soft_drop < existing.soft_drop => *existing = dropped,
-            None => {
-                terminals.insert(key, dropped);
+            slot @ None => {
+                *slot = Some(dropped);
             }
             _ => {}
         }
@@ -72,7 +92,7 @@ pub fn find_placements(board: &Board, kind: PieceKind) -> Vec<(Placement, u32)> 
             if !should_visit(&mut best_soft_drop, next_state) {
                 continue;
             }
-            queue.push_front(next_state);
+            current.push(next_state.key());
         }
 
         if can_move_down {
@@ -86,7 +106,7 @@ pub fn find_placements(board: &Board, kind: PieceKind) -> Vec<(Placement, u32)> 
                 soft_drop: state.soft_drop + 1,
             };
             if should_visit(&mut best_soft_drop, next_state) {
-                queue.push_back(next_state);
+                next.push(next_state.key());
             }
         }
 
@@ -142,13 +162,14 @@ pub fn find_placements(board: &Board, kind: PieceKind) -> Vec<(Placement, u32)> 
             if !should_visit(&mut best_soft_drop, next_state) {
                 continue;
             }
-            queue.push_front(next_state);
+            current.push(next_state.key());
         }
     }
 
-    let mut results: Vec<(Placement, u32)> = Vec::with_capacity(terminals.len());
+    let terminal_count = terminals.iter().filter(|entry| entry.is_some()).count();
+    let mut results: Vec<(Placement, u32)> = Vec::with_capacity(terminal_count);
 
-    for terminal in terminals.into_values() {
+    for terminal in terminals.into_iter().flatten() {
         let (is_spin, is_mini) = detect_spin_at_terminal(board, kind, &terminal);
 
         results.push((
@@ -247,18 +268,14 @@ fn count_t_front_corners(board: &Board, piece: &Piece) -> u8 {
         .count() as u8
 }
 
-fn should_visit(best_soft_drop: &mut HashMap<SearchStateKey, u32>, state: SearchState) -> bool {
+fn should_visit(best_soft_drop: &mut [u32; SEARCH_KEY_CAPACITY], state: SearchState) -> bool {
     let key = state.key();
-    match best_soft_drop.get_mut(&key) {
-        Some(best) if state.soft_drop < *best => {
-            *best = state.soft_drop;
-            true
-        }
-        None => {
-            best_soft_drop.insert(key, state.soft_drop);
-            true
-        }
-        _ => false,
+    let best = &mut best_soft_drop[key.index()];
+    if state.soft_drop < *best {
+        *best = state.soft_drop;
+        true
+    } else {
+        false
     }
 }
 
@@ -284,9 +301,16 @@ impl SearchState {
             last_kick_idx: self.last_kick_idx,
         }
     }
+
+    fn terminal_index(self, is_spin: bool, is_mini: bool) -> usize {
+        let x = shifted_x(self.x);
+        let y = shifted_y(self.y);
+        ((((y * SEARCH_X_RANGE + x) * 4 + self.rotation as usize) * 2 + is_spin as usize) * 2)
+            + is_mini as usize
+    }
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq, Hash)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 struct SearchStateKey {
     x: i16,
     y: i16,
@@ -294,6 +318,59 @@ struct SearchStateKey {
     last_was_rot: bool,
     last_rot_dir: Option<i8>,
     last_kick_idx: Option<u8>,
+}
+
+impl SearchStateKey {
+    fn index(self) -> usize {
+        let x = shifted_x(self.x);
+        let y = shifted_y(self.y);
+        let rotation = self.rotation as usize;
+        let last_was_rot = self.last_was_rot as usize;
+        let last_rot_dir = match self.last_rot_dir {
+            None => 0,
+            Some(-1) => 1,
+            Some(1) => 2,
+            Some(2) | Some(-2) => 3,
+            Some(other) => panic!("unexpected rotation direction {other}"),
+        };
+        let last_kick_idx = match self.last_kick_idx {
+            None => 0,
+            Some(kick) if kick < 5 => kick as usize + 1,
+            Some(other) => panic!("unexpected kick index {other}"),
+        };
+
+        (((((y * SEARCH_X_RANGE + x) * 4 + rotation) * 2 + last_was_rot) * 4 + last_rot_dir) * 6)
+            + last_kick_idx
+    }
+
+    fn with_soft_drop(self, soft_drop: u32) -> SearchState {
+        SearchState {
+            x: self.x,
+            y: self.y,
+            rotation: self.rotation,
+            last_was_rot: self.last_was_rot,
+            last_rot_dir: self.last_rot_dir,
+            last_kick_idx: self.last_kick_idx,
+            soft_drop,
+        }
+    }
+}
+
+const SEARCH_X_MIN: i16 = -3;
+const SEARCH_Y_MIN: i16 = -3;
+const SEARCH_X_RANGE: usize = BOARD_WIDTH + 3;
+const SEARCH_Y_RANGE: usize = BOARD_HEIGHT + 3;
+const SEARCH_KEY_CAPACITY: usize = SEARCH_X_RANGE * SEARCH_Y_RANGE * 4 * 2 * 4 * 6;
+const TERMINAL_CAPACITY: usize = SEARCH_X_RANGE * SEARCH_Y_RANGE * 4 * 2 * 2;
+
+fn shifted_x(x: i16) -> usize {
+    debug_assert!((SEARCH_X_MIN..(SEARCH_X_MIN + SEARCH_X_RANGE as i16)).contains(&x));
+    (x - SEARCH_X_MIN) as usize
+}
+
+fn shifted_y(y: i16) -> usize {
+    debug_assert!((SEARCH_Y_MIN..(SEARCH_Y_MIN + SEARCH_Y_RANGE as i16)).contains(&y));
+    (y - SEARCH_Y_MIN) as usize
 }
 
 pub fn simulate_lock_line_count(board: &Board, kind: PieceKind, placement: &Placement) -> u32 {

@@ -38,14 +38,16 @@ pub struct PlacementFeatures {
     pub used_hold: bool,
     pub wasted_t: bool,
     pub wasted_spin_piece: bool,
+    pub surge_send: i32,
 }
 
 pub fn extract_features(
-    before_state: &GameState,
     after_state: &GameState,
     info: &PlacementInfo,
     placement: Placement,
     soft_drop: u32,
+    had_t_slot: bool,
+    had_piece_spin_setup: bool,
 ) -> (BoardFeatures, PlacementFeatures) {
     let board_feats = extract_board_features(
         &after_state.board,
@@ -54,7 +56,7 @@ pub fn extract_features(
         after_state.bag,
     );
     let placement_feats =
-        extract_placement_features(before_state, info, placement, soft_drop, &board_feats);
+        extract_placement_features(info, placement, soft_drop, had_t_slot, had_piece_spin_setup);
     (board_feats, placement_feats)
 }
 
@@ -186,25 +188,12 @@ fn extract_board_features(
 }
 
 fn extract_placement_features(
-    before_state: &GameState,
     info: &PlacementInfo,
     placement: Placement,
     soft_drop: u32,
-    _board_feats: &BoardFeatures,
+    had_t_slot: bool,
+    had_piece_spin_setup: bool,
 ) -> PlacementFeatures {
-    let mut opportunity_pieces = before_state.bag;
-    if let Some(kind) = info.placed_kind {
-        opportunity_pieces.insert(kind);
-    }
-
-    let had_t_slot = count_spin_setups(&before_state.board, PieceKind::T, opportunity_pieces)
-        .iter()
-        .any(|&count| count > 0);
-    let had_piece_spin_setup =
-        count_spin_setups(&before_state.board, placement.kind, opportunity_pieces)
-            .iter()
-            .any(|&count| count > 0);
-
     let wasted_t = placement.kind == PieceKind::T && !info.is_spin && had_t_slot;
     let wasted_spin_piece = matches!(
         placement.kind,
@@ -225,6 +214,7 @@ fn extract_placement_features(
         used_hold: info.used_hold,
         wasted_t,
         wasted_spin_piece,
+        surge_send: info.surge_send,
     }
 }
 
@@ -260,5 +250,53 @@ mod tests {
         board[39 * BOARD_WIDTH + 1] = 1;
         let feats = extract_board_features(&board, 0, 0, BagSet::full());
         assert!(feats.holes > 0);
+    }
+
+    #[test]
+    fn placement_features_mark_wasted_t_from_precomputed_slot() {
+        let info = PlacementInfo {
+            placed_kind: Some(PieceKind::T),
+            ..PlacementInfo::default()
+        };
+        let placement = Placement {
+            x: 4,
+            y: 18,
+            rotation: 0,
+            kind: PieceKind::T,
+            last_was_rot: false,
+            last_rot_dir: None,
+            last_kick_idx: None,
+            is_spin: false,
+            is_mini: false,
+        };
+
+        let feats = extract_placement_features(&info, placement, 0, true, true);
+
+        assert!(feats.wasted_t);
+        assert!(!feats.wasted_spin_piece);
+    }
+
+    #[test]
+    fn placement_features_mark_wasted_all_spin_piece_from_precomputed_slot() {
+        let info = PlacementInfo {
+            placed_kind: Some(PieceKind::J),
+            ..PlacementInfo::default()
+        };
+        let placement = Placement {
+            x: 4,
+            y: 18,
+            rotation: 0,
+            kind: PieceKind::J,
+            last_was_rot: false,
+            last_rot_dir: None,
+            last_kick_idx: None,
+            is_spin: false,
+            is_mini: false,
+        };
+
+        let feats = extract_placement_features(&info, placement, 0, false, true);
+
+        assert!(!feats.wasted_t);
+        assert!(feats.wasted_spin_piece);
     }
 }

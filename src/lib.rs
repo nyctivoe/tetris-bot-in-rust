@@ -5,5 +5,6 @@ pub mod eval;
 pub mod map;
 pub mod movegen;
 pub mod piece_map;
+pub(crate) mod profiling;
 pub mod sync;
 pub mod tbp;

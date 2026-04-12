@@ -3,6 +3,7 @@ use crate::dag::{ChildData, Dag};
 use crate::data::*;
 use crate::eval::evaluate::Eval;
 use crate::eval::features::extract_features;
+use crate::eval::slots::has_any_spin_setup;
 use crate::movegen::find_placements;
 use crate::piece_map::PieceMap;
 use tetrisEngine::PieceKind;
@@ -41,6 +42,7 @@ impl Freestyle {
     }
 
     pub fn do_work(&self, options: &BotOptions) -> Statistics {
+        crate::profiling::clear();
         let mut new_stats = Statistics::default();
         new_stats.selections += 1;
 
@@ -72,6 +74,12 @@ impl Freestyle {
                     moves[piece] = find_placements(&state.board, piece);
                 }
             }
+
+            let mut before_spin_opportunities: PieceMap<bool> = PieceMap::default();
+            for (piece, placements) in moves.iter() {
+                before_spin_opportunities[piece] = has_any_spin_setup(placements);
+            }
+            let had_t_slot = before_spin_opportunities[PieceKind::T];
 
             let mut children: PieceMap<Vec<ChildData<Eval>>> = PieceMap::default();
 
@@ -137,8 +145,14 @@ impl Freestyle {
                         let mut s = state;
                         let info = s.advance_action(action);
 
-                        let (board_feats, placement_feats) =
-                            extract_features(&state, &s, &info, action.placement, sd_distance);
+                        let (board_feats, placement_feats) = extract_features(
+                            &s,
+                            &info,
+                            action.placement,
+                            sd_distance,
+                            had_t_slot,
+                            before_spin_opportunities[action.placement.kind],
+                        );
 
                         let (eval, reward) = crate::eval::evaluate::evaluate(
                             &options.config.freestyle_weights,
@@ -163,6 +177,12 @@ impl Freestyle {
             new_stats.expansions += 1;
             node.expand(children);
         }
+
+        let profile = crate::profiling::take();
+        new_stats.movegen_calls = profile.movegen_calls;
+        new_stats.movegen_nanos = profile.movegen_nanos;
+        new_stats.slot_calls = profile.slot_calls;
+        new_stats.slot_nanos = profile.slot_nanos;
 
         new_stats
     }

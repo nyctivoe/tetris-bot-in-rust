@@ -14,6 +14,8 @@ pub enum FrontendMessage {
     Stop,
     #[serde(rename = "suggest")]
     Suggest,
+    #[serde(rename = "peek")]
+    Peek,
     #[serde(rename = "play")]
     Play { mv: PlacementMessage },
     #[serde(rename = "new_piece")]

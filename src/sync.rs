@@ -44,16 +44,17 @@ impl BotSynchronizer {
     }
 
     pub fn start(&self, bot: Bot) {
-        {
+        let generation = {
             let mut state = self.state.lock();
             state.running = true;
             state.shutdown = false;
-            Self::bump_generation(&mut state);
-        }
+            Self::bump_generation(&mut state)
+        };
         {
             let mut guard = self.bot.write();
             *guard = Some(bot);
         }
+        self.prime_generation(generation);
         self.wakeup.notify_all();
     }
 
@@ -134,22 +135,17 @@ impl BotSynchronizer {
             ));
         }
 
-        let elapsed = state.session_start.elapsed().as_secs_f64();
-        let nps = if elapsed > 0.0 {
-            state.session_stats.nodes as f64 / elapsed
-        } else {
-            0.0
-        };
+        Some((moves, Self::build_move_info(&state)))
+    }
 
-        let info = MoveInfo {
-            nodes: state.session_stats.nodes,
-            nps,
-            extra: format!(
-                "gen={} sel={} exp={}",
-                state.generation, state.session_stats.selections, state.session_stats.expansions,
-            ),
-        };
-        Some((moves, info))
+    pub fn peek(&self) -> Option<(Vec<Placement>, MoveInfo)> {
+        let guard = self.bot.read();
+        let bot = guard.as_ref()?;
+        let moves = bot.suggest();
+        drop(guard);
+
+        let state = self.state.lock();
+        Some((moves, Self::build_move_info(&state)))
     }
 
     pub fn advance(&self, mv: Placement) {
@@ -159,8 +155,11 @@ impl BotSynchronizer {
                 bot.advance(mv);
             }
         }
-        let mut state = self.state.lock();
-        Self::bump_generation(&mut state);
+        let generation = {
+            let mut state = self.state.lock();
+            Self::bump_generation(&mut state)
+        };
+        self.prime_generation(generation);
     }
 
     pub fn new_piece(&self, piece: PieceKind) {
@@ -170,8 +169,11 @@ impl BotSynchronizer {
                 bot.new_piece(piece);
             }
         }
-        let mut state = self.state.lock();
-        Self::bump_generation(&mut state);
+        let generation = {
+            let mut state = self.state.lock();
+            Self::bump_generation(&mut state)
+        };
+        self.prime_generation(generation);
     }
 
     pub fn work_loop(&self, gen_cookie: &AtomicU64) {
@@ -203,6 +205,45 @@ impl BotSynchronizer {
             if state.generation == my_gen {
                 state.session_stats.accumulate(stats);
             }
+        }
+    }
+
+    fn build_move_info(state: &SyncState) -> MoveInfo {
+        let elapsed = state.session_start.elapsed().as_secs_f64();
+        let nps = if elapsed > 0.0 {
+            state.session_stats.nodes as f64 / elapsed
+        } else {
+            0.0
+        };
+
+        MoveInfo {
+            nodes: state.session_stats.nodes,
+            nps,
+            extra: format!(
+                "gen={} sel={} exp={} mg={}c/{}us slot={}c/{}us",
+                state.generation,
+                state.session_stats.selections,
+                state.session_stats.expansions,
+                state.session_stats.movegen_calls,
+                state.session_stats.movegen_nanos / 1_000,
+                state.session_stats.slot_calls,
+                state.session_stats.slot_nanos / 1_000,
+            ),
+        }
+    }
+
+    fn prime_generation(&self, generation: u64) {
+        let stats = {
+            let guard = self.bot.read();
+            match guard.as_ref() {
+                Some(bot) => bot.do_work(),
+                None => return,
+            }
+        };
+
+        let mut state = self.state.lock();
+        if state.generation == generation {
+            state.session_stats.accumulate(stats);
         }
     }
 }
@@ -331,6 +372,38 @@ mod tests {
             info.nps > 0.0,
             "nps should be positive after work: got {}",
             info.nps
+        );
+        assert!(
+            info.extra.contains("mg=") && info.extra.contains("slot="),
+            "extra info should expose profiling counters: {}",
+            info.extra,
+        );
+    }
+
+    #[test]
+    fn peek_returns_immediate_snapshot() {
+        let config = test_config();
+        let sync = BotSynchronizer::new(config.clone());
+        let bot = Bot::new(
+            test_options(&config),
+            GameState::empty(),
+            &[
+                PieceKind::S,
+                PieceKind::O,
+                PieceKind::T,
+                PieceKind::I,
+                PieceKind::L,
+                PieceKind::Z,
+            ],
+        );
+
+        sync.start(bot);
+        let (_moves, info) = sync.peek().expect("started bot should answer peek");
+
+        assert!(
+            info.extra.contains("gen="),
+            "peek should return move info metadata: {}",
+            info.extra,
         );
     }
 
