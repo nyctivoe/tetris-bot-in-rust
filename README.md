@@ -6,4 +6,4 @@ This is a Tetris Bot inspired by Cold Clear 2 with some adaptive modifications.
 
 ## License
 
-Dual-licensed under the [MIT License](../LICENSE-MIT) and the [Apache License 2.0](../LICENSE-APACHE).
+Dual-licensed under the [MIT License](LICENSE-MIT) and the [Apache License 2.0](LICENSE-APACHE).
