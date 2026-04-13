@@ -62,6 +62,18 @@ impl BotSynchronizer {
         {
             let mut state = self.state.lock();
             state.running = false;
+        }
+        {
+            let mut guard = self.bot.write();
+            *guard = None;
+        }
+        self.wakeup.notify_all();
+    }
+
+    pub fn shutdown(&self) {
+        {
+            let mut state = self.state.lock();
+            state.running = false;
             state.shutdown = true;
         }
         {
@@ -193,14 +205,17 @@ impl BotSynchronizer {
                 let guard = self.bot.read();
                 match guard.as_ref() {
                     Some(bot) => bot.do_work(),
-                    None => return,
+                    None => continue,
                 }
             };
 
             let my_gen = gen_cookie.load(AtomicOrdering::Relaxed);
             let mut state = self.state.lock();
-            if state.shutdown || !state.running {
+            if state.shutdown {
                 return;
+            }
+            if !state.running {
+                continue;
             }
             if state.generation == my_gen {
                 state.session_stats.accumulate(stats);
@@ -532,7 +547,63 @@ mod tests {
             info.nodes
         );
 
+        sync.shutdown();
+        for handle in handles {
+            let _ = handle.join();
+        }
+    }
+
+    #[test]
+    fn workers_survive_stop_and_restart() {
+        let config = {
+            let mut c = BotConfig::default();
+            c.worker_count = 4;
+            c.suggest_budget_ms = 15_000;
+            c.suggest_min_nodes = 1;
+            Arc::new(c)
+        };
+        let sync = Arc::new(BotSynchronizer::new(config.clone()));
+
+        let handles: Vec<_> = (0..4)
+            .map(|_| {
+                let sync = sync.clone();
+                std::thread::spawn(move || {
+                    let gen_cookie = AtomicU64::new(0);
+                    sync.work_loop(&gen_cookie);
+                })
+            })
+            .collect();
+
+        let make_bot = || {
+            Bot::new(
+                BotOptions {
+                    speculate: true,
+                    config: config.clone(),
+                },
+                GameState::empty(),
+                &[
+                    PieceKind::S,
+                    PieceKind::O,
+                    PieceKind::T,
+                    PieceKind::I,
+                    PieceKind::L,
+                    PieceKind::Z,
+                ],
+            )
+        };
+
+        sync.start(make_bot());
+        let (moves1, info1) = sync.suggest().expect("should answer first suggest");
+        assert!(!moves1.is_empty(), "first suggest should produce moves");
+        assert!(info1.nodes > 0, "first suggest should expand nodes");
+
         sync.stop();
+        sync.start(make_bot());
+        let (moves2, info2) = sync.suggest().expect("should answer second suggest");
+        assert!(!moves2.is_empty(), "second suggest should produce moves");
+        assert!(info2.nodes > 0, "second suggest should expand nodes");
+
+        sync.shutdown();
         for handle in handles {
             let _ = handle.join();
         }

@@ -90,7 +90,10 @@ fn main() {
             FrontendMessage::NewPiece { piece } => {
                 bot_sync.new_piece(piece);
             }
-            FrontendMessage::Quit => break,
+            FrontendMessage::Quit => {
+                bot_sync.shutdown();
+                break;
+            }
         }
     }
 }
