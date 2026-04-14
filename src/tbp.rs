@@ -20,6 +20,12 @@ pub enum FrontendMessage {
     Play { mv: PlacementMessage },
     #[serde(rename = "new_piece")]
     NewPiece { piece: PieceKind },
+    #[serde(rename = "advance")]
+    Advance {
+        mv: PlacementMessage,
+        #[serde(default)]
+        new_pieces: Vec<PieceKind>,
+    },
     #[serde(rename = "quit")]
     Quit,
 }
@@ -42,6 +48,8 @@ pub struct Start {
     pub combo_active: bool,
     #[serde(default = "default_b2b_mode_str")]
     pub b2b_mode: String,
+    #[serde(default)]
+    pub time_budget_ms: Option<u64>,
 }
 
 fn default_b2b_mode_str() -> String {

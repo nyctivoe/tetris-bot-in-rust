@@ -84,16 +84,20 @@ impl BotSynchronizer {
     }
 
     pub fn suggest(&self) -> Option<(Vec<Placement>, MoveInfo)> {
+        self.suggest_impl(self.config.suggest_budget_ms)
+    }
+
+    pub fn suggest_with_budget(&self, budget_ms: u64) -> Option<(Vec<Placement>, MoveInfo)> {
+        self.suggest_impl(budget_ms)
+    }
+
+    fn suggest_impl(&self, budget_ms: u64) -> Option<(Vec<Placement>, MoveInfo)> {
         let guard = self.bot.read();
         let bot = guard.as_ref()?;
 
-        let (generation, budget_ms, min_nodes) = {
+        let (generation, min_nodes) = {
             let state = self.state.lock();
-            (
-                state.generation,
-                self.config.suggest_budget_ms,
-                self.config.suggest_min_nodes,
-            )
+            (state.generation, self.config.suggest_min_nodes)
         };
 
         let deadline = Instant::now() + std::time::Duration::from_millis(budget_ms);
@@ -179,6 +183,23 @@ impl BotSynchronizer {
             let mut guard = self.bot.write();
             if let Some(bot) = guard.as_mut() {
                 bot.new_piece(piece);
+            }
+        }
+        let generation = {
+            let mut state = self.state.lock();
+            Self::bump_generation(&mut state)
+        };
+        self.prime_generation(generation);
+    }
+
+    pub fn advance_with_pieces(&self, mv: Placement, pieces: Vec<PieceKind>) {
+        {
+            let mut guard = self.bot.write();
+            if let Some(bot) = guard.as_mut() {
+                bot.advance(mv);
+                for piece in &pieces {
+                    bot.new_piece(*piece);
+                }
             }
         }
         let generation = {

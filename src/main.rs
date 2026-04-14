@@ -4,6 +4,7 @@ use std::sync::atomic::AtomicU64;
 use std::sync::Arc;
 
 use tetrisBot::bot::{Bot, BotConfig, BotOptions};
+use tetrisBot::data::Placement;
 use tetrisBot::data::{BagSet, GameState};
 use tetrisBot::sync::BotSynchronizer;
 use tetrisBot::tbp::{BoardMessage, BotMessage, FrontendMessage, MoveInfoMessage};
@@ -30,6 +31,8 @@ fn main() {
     println!("{}", info.to_json());
     io::stdout().flush().unwrap();
 
+    let mut auto_budget_ms: Option<u64> = None;
+
     let stdin = io::stdin();
     for line in stdin.lock().lines() {
         let line = match line {
@@ -49,39 +52,28 @@ fn main() {
                 io::stdout().flush().unwrap();
             }
             FrontendMessage::Start(start) => {
+                auto_budget_ms = start.time_budget_ms;
                 let bot = bot_from_start(config.clone(), start);
                 prime_bot(&bot, 1);
                 bot_sync.start(bot);
+                if let Some(budget_ms) = auto_budget_ms {
+                    if let Some((moves, info)) = bot_sync.suggest_with_budget(budget_ms) {
+                        print_suggestion(moves, info);
+                    }
+                }
             }
             FrontendMessage::Stop => {
+                auto_budget_ms = None;
                 bot_sync.stop();
             }
             FrontendMessage::Suggest => {
                 if let Some((moves, info)) = bot_sync.suggest() {
-                    let msg = BotMessage::Suggestion {
-                        moves,
-                        move_info: MoveInfoMessage {
-                            nodes: info.nodes,
-                            nps: info.nps,
-                            extra: info.extra,
-                        },
-                    };
-                    println!("{}", msg.to_json());
-                    io::stdout().flush().unwrap();
+                    print_suggestion(moves, info);
                 }
             }
             FrontendMessage::Peek => {
                 if let Some((moves, info)) = bot_sync.peek() {
-                    let msg = BotMessage::Suggestion {
-                        moves,
-                        move_info: MoveInfoMessage {
-                            nodes: info.nodes,
-                            nps: info.nps,
-                            extra: info.extra,
-                        },
-                    };
-                    println!("{}", msg.to_json());
-                    io::stdout().flush().unwrap();
+                    print_suggestion(moves, info);
                 }
             }
             FrontendMessage::Play { mv } => {
@@ -90,12 +82,33 @@ fn main() {
             FrontendMessage::NewPiece { piece } => {
                 bot_sync.new_piece(piece);
             }
+            FrontendMessage::Advance { mv, new_pieces } => {
+                bot_sync.advance_with_pieces(mv.location, new_pieces);
+                if let Some(budget_ms) = auto_budget_ms {
+                    if let Some((moves, info)) = bot_sync.suggest_with_budget(budget_ms) {
+                        print_suggestion(moves, info);
+                    }
+                }
+            }
             FrontendMessage::Quit => {
                 bot_sync.shutdown();
                 break;
             }
         }
     }
+}
+
+fn print_suggestion(moves: Vec<Placement>, info: tetrisBot::sync::MoveInfo) {
+    let msg = BotMessage::Suggestion {
+        moves,
+        move_info: MoveInfoMessage {
+            nodes: info.nodes,
+            nps: info.nps,
+            extra: info.extra,
+        },
+    };
+    println!("{}", msg.to_json());
+    io::stdout().flush().unwrap();
 }
 
 fn load_bot_config() -> BotConfig {
@@ -238,6 +251,7 @@ mod tests {
             surge_charge: 0,
             combo_active: false,
             b2b_mode: "surge".to_string(),
+            time_budget_ms: None,
         };
 
         let bot = bot_from_start(Arc::new(BotConfig::default()), start);
